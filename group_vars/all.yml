@@ -1,0 +1,25 @@
+ssh_public_key_file: "~/.ssh/id_ed25519.pub"
+fail2ban_bantime: 1h
+fail2ban_findtime: 10m
+fail2ban_maxretry: 3
+login_banner: "Acceso restringido. Solo personal autorizado. Toda actividad es monitoreada."
+sshd_settings:
+  PermitRootLogin: "no"
+  MaxAuthTries: "3"
+  MaxSessions: "2"
+  ClientAliveInterval: "300"
+  ClientAliveCountMax: "2"
+  LogLevel: "VERBOSE"
+  X11Forwarding: "no"
+  AllowAgentForwarding: "no"
+  AllowTcpForwarding: "no"
+  TCPKeepAlive: "no"
+sysctl_settings:
+  fs.suid_dumpable: "0"
+  kernel.dmesg_restrict: "1"
+  kernel.kptr_restrict: "2"
+  net.ipv4.conf.all.rp_filter: "1"
+  net.ipv4.conf.default.rp_filter: "1"
+  net.ipv4.icmp_echo_ignore_broadcasts: "1"
+  net.ipv4.conf.all.accept_source_route: "0"
+blocked_modules: [usb-storage, firewire-core, dccp, sctp, rds, tipc]
