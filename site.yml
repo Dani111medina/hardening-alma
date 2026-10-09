@@ -1,0 +1,106 @@
+# FASE 2: hardening completo (requiere que bootstrap.yml ya haya corrido)
+- name: Hardening AlmaLinux
+  hosts: alma_servers
+  become: true
+  handlers:
+    - name: restart sshd
+      ansible.builtin.systemd: { name: sshd, state: restarted }
+    - name: restart fail2ban
+      ansible.builtin.systemd: { name: fail2ban, state: restarted }
+
+  tasks:
+    # ---- Bloque 1: Kernel (KRNL-6000, STRG, NETW) ----
+    - name: Core dumps deshabilitados
+      ansible.builtin.lineinfile:
+        path: /etc/security/limits.conf
+        line: "* hard core 0"
+        insertbefore: "^# End of file"
+
+    - name: Parámetros sysctl
+      ansible.posix.sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        sysctl_file: /etc/sysctl.d/99-hardening.conf
+        sysctl_set: true
+        reload: true
+      loop: "{{ sysctl_settings | dict2items }}"
+
+    - name: Bloquear módulos no usados
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/hardening.conf
+        mode: "0644"
+        content: |
+          {% for m in blocked_modules %}
+          install {{ m }} /bin/false
+          {% endfor %}
+
+    # ---- Bloque 2: Usuarios (AUTH-9286, AUTH-9328) ----
+    - name: Política de contraseñas y umask
+      ansible.builtin.lineinfile:
+        path: /etc/login.defs
+        regexp: "^{{ item.key }}\\s"
+        line: "{{ item.key }}   {{ item.value }}"
+      loop:
+        - { key: PASS_MAX_DAYS, value: 90 }
+        - { key: PASS_MIN_DAYS, value: 7 }
+        - { key: PASS_WARN_AGE, value: 14 }
+        - { key: UMASK, value: "027" }
+
+    # ---- Bloque 3: SSH (SSH-7408) ----
+    - name: Endurecer sshd_config
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?\\s*{{ item.key }}\\s"
+        line: "{{ item.key }} {{ item.value }}"
+        validate: /usr/sbin/sshd -t -f %s
+      loop: "{{ sshd_settings | dict2items }}"
+      notify: restart sshd
+
+    - name: Desactivar contraseña SSH (la llave ya fue distribuida por bootstrap)
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?\\s*PasswordAuthentication\\s"
+        line: "PasswordAuthentication no"
+        validate: /usr/sbin/sshd -t -f %s
+      notify: restart sshd
+
+    # ---- Bloque 4: Banners (BANN-7126/7130) ----
+    - name: Banners legales
+      ansible.builtin.copy:
+        dest: "{{ item }}"
+        content: "{{ login_banner }}\n"
+      loop: [/etc/issue, /etc/issue.net]
+
+    # ---- Bloque 5: Fail2ban ----
+    - name: Instalar EPEL y fail2ban
+      ansible.builtin.dnf:
+        name: [epel-release, fail2ban, fail2ban-firewalld]
+        state: present
+
+    - name: Configurar jail.local
+      ansible.builtin.template:
+        src: jail.local.j2
+        dest: /etc/fail2ban/jail.local
+        mode: "0644"
+      notify: restart fail2ban
+
+    - name: Habilitar fail2ban
+      ansible.builtin.systemd: { name: fail2ban, enabled: true, state: started }
+
+    - name: Verificar que la jaula sshd existe
+      ansible.builtin.command: fail2ban-client status sshd
+      changed_when: false
+
+    # ---- Bloque 6: Malware scanner ----
+    - name: Instalar rkhunter
+      ansible.builtin.dnf: { name: rkhunter, state: present }
+
+    - name: Alinear rkhunter con política SSH
+      ansible.builtin.lineinfile:
+        path: /etc/rkhunter.conf
+        regexp: "^#?ALLOW_SSH_ROOT_USER="
+        line: "ALLOW_SSH_ROOT_USER=no"
+
+    - name: Actualizar base de propiedades
+      ansible.builtin.command: rkhunter --propupd
+      changed_when: false

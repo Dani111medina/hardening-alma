@@ -1,0 +1,5 @@
+ORDEN DE EJECUCION (desde la maquina con Ansible, dentro de la carpeta):
+1) nano inventory.ini  -> cambiar IP_DE_LA_MAQUINA_LIMPIA por la IP real (ip a en la VM limpia)
+2) ansible-playbook bootstrap.yml --ask-pass
+3) ansible-playbook site.yml --check --diff
+4) ansible-playbook site.yml

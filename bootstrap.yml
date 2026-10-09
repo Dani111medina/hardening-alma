@@ -1,0 +1,9 @@
+# FASE 1: correr primero, con contraseña (--ask-pass). Solo copia la llave pública.
+- name: Bootstrap - distribuir llave SSH
+  hosts: alma_servers
+  tasks:
+    - name: Copiar llave pública
+      ansible.posix.authorized_key:
+        user: "{{ ansible_user }}"
+        state: present
+        key: "{{ lookup('file', ssh_public_key_file) }}"
