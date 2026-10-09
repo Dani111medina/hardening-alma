@@ -72,9 +72,14 @@
       loop: [/etc/issue, /etc/issue.net]
 
     # ---- Bloque 5: Fail2ban ----
-    - name: Instalar EPEL y fail2ban
+    - name: Instalar EPEL
       ansible.builtin.dnf:
-        name: [epel-release, fail2ban, fail2ban-firewalld]
+        name: epel-release
+        state: present
+
+    - name: Instalar fail2ban
+      ansible.builtin.dnf:
+        name: [fail2ban, fail2ban-firewalld]
         state: present
 
     - name: Configurar jail.local
