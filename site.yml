@@ -1,6 +1,6 @@
 # FASE 2: hardening completo (requiere que bootstrap.yml ya haya corrido)
 - name: Hardening AlmaLinux
-  hosts: alma_servers
+  hosts: all
   become: true
   handlers:
     - name: restart sshd
